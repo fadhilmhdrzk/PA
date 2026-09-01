@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --color-rose-650: #d01842;
+  --color-red-650: #c82121;
+  --color-emerald-650: #048760;
+  --color-stone-650: #4d4945;
+}
+
+/* Custom Base Layer Styling */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-stone-50 text-stone-800 antialiased;
+  }
+
+  /* Custom styling for sleek scrollbars on all elements */
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1; /* Slate-300 */
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8; /* Slate-400 */
+  }
+
+  /* Support for Firefox scrollbar styling */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+}
+
+/* Custom premium components/utilities */
+.glass-nav {
+  @apply backdrop-blur-md bg-stone-50/80 border-b border-stone-200/50 sticky top-0 z-50;
+}
+
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-emerald-800 to-teal-600;
+}
+
+.card-hover {
+  @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-900/5;
+}
