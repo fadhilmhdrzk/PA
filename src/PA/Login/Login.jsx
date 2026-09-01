@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -16,6 +16,11 @@ export default function Login() {
       return
     }
 
+    if (!isSupabaseConfigured) {
+      setError('Koneksi Supabase belum dikonfigurasi di Vercel. Silakan atur VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY di Settings Vercel lalu Redeploy.')
+      return
+    }
+
     setError('')
     setLoading(true)
 
@@ -26,10 +31,15 @@ export default function Login() {
     })
 
     if (authError) {
-      setError('Login gagal: ' + authError.message)
+      if (authError.message.includes('Failed to fetch')) {
+        setError('Gagal menghubungi Supabase (Failed to fetch). Pastikan Environment Variables VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY sudah diset di Vercel dan sudah di-Redeploy.')
+      } else {
+        setError('Login gagal: ' + authError.message)
+      }
       setLoading(false)
       return
     }
+
 
     // Fetch the user's role from the profiles table
     const { data: profile, error: profileError } = await supabase
