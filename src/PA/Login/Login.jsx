@@ -31,14 +31,11 @@ export default function Login() {
     })
 
     if (authError) {
-      if (authError.message.includes('Failed to fetch')) {
-        setError('Gagal menghubungi Supabase (Failed to fetch). Pastikan Environment Variables VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY sudah diset di Vercel dan sudah di-Redeploy.')
-      } else {
-        setError('Login gagal: ' + authError.message)
-      }
+      setError('Login gagal: ' + authError.message)
       setLoading(false)
       return
     }
+
 
 
     // Fetch the user's role from the profiles table
