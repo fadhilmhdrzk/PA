@@ -91,11 +91,8 @@ export default function DashboardAdmin() {
   // State for Petugas
   const [petugasList, setPetugasList] = useState([])
 
-  // State for Keuangan initialized from localStorage
-  const [transaksiList, setTransaksiList] = useState(() => {
-    const saved = localStorage.getItem('transaksiList')
-    return saved ? JSON.parse(saved) : initialTransaksiList
-  })
+  // State for Keuangan (synced to Supabase)
+  const [transaksiList, setTransaksiList] = useState([])
 
   // State for Keuangan Pagu Anggaran initialized from localStorage
   const [paguAnggaran, setPaguAnggaran] = useState(() => {
@@ -106,6 +103,12 @@ export default function DashboardAdmin() {
   useEffect(() => {
     localStorage.setItem('paguAnggaran', paguAnggaran.toString())
   }, [paguAnggaran])
+
+  // Keep latest value transaksi in ref
+  const transaksiListRef = useRef(transaksiList)
+  useEffect(() => {
+    transaksiListRef.current = transaksiList
+  }, [transaksiList])
 
   // State for Histori
   const [historiList, setHistoriList] = useState([])
@@ -605,16 +608,85 @@ export default function DashboardAdmin() {
     }
   }
 
-  // Persist Petugas (no longer synced to localStorage, managed by Supabase)
-
-  // Persist Keuangan to localStorage
+  // Fetch Transaksi Keuangan from Supabase
   useEffect(() => {
-    try {
-      localStorage.setItem('transaksiList', JSON.stringify(transaksiList))
-    } catch (e) {
-      console.error('LocalStorage write failed:', e)
+    const fetchTransaksi = async () => {
+      const { data, error } = await supabase
+        .from('transaksi_keuangan')
+        .select('*')
+        .order('id', { ascending: false })
+      if (error) {
+        console.error('Gagal memuat data transaksi:', error.message)
+      } else if (data) {
+        setTransaksiList(data.map(db => ({
+          id: db.id,
+          tanggal: db.tanggal,
+          kategori: db.kategori,
+          nominal: db.nominal,
+          tipe: db.tipe,
+          keterangan: db.keterangan,
+          buktiFoto: db.bukti_foto || ''
+        })))
+      }
     }
-  }, [transaksiList])
+    fetchTransaksi()
+  }, [])
+
+  // Sync Transaksi Keuangan state updates to Supabase
+  const updateTransaksiList = async (newListOrFunc) => {
+    const currentList = transaksiListRef.current
+    let nextList
+    if (typeof newListOrFunc === 'function') {
+      nextList = newListOrFunc(currentList)
+    } else {
+      nextList = newListOrFunc
+    }
+
+    setTransaksiList(nextList)
+
+    const oldMap = new Map(currentList.map(item => [item.id, item]))
+    const newMap = new Map(nextList.map(item => [item.id, item]))
+
+    // Delete removed items
+    for (const oldId of oldMap.keys()) {
+      if (!newMap.has(oldId)) {
+        const { error } = await supabase.from('transaksi_keuangan').delete().eq('id', oldId)
+        if (error) console.error('Gagal menghapus transaksi:', error.message)
+      }
+    }
+
+    // Insert/update added or modified items
+    for (const [newId, newItem] of newMap.entries()) {
+      const oldItem = oldMap.get(newId)
+      const dbPayload = {
+        tanggal: newItem.tanggal,
+        kategori: newItem.kategori,
+        nominal: newItem.nominal,
+        tipe: newItem.tipe,
+        keterangan: newItem.keterangan,
+        bukti_foto: newItem.buktiFoto || null
+      }
+      if (!oldItem) {
+        // New item — insert and replace temp id with real db id
+        const { data, error } = await supabase
+          .from('transaksi_keuangan')
+          .insert([dbPayload])
+          .select('id')
+          .single()
+        if (error) {
+          console.error('Gagal menambah transaksi:', error.message)
+        } else if (data) {
+          setTransaksiList(prev => prev.map(item => item.id === newId ? { ...item, id: data.id } : item))
+        }
+      } else if (JSON.stringify(oldItem) !== JSON.stringify(newItem)) {
+        const { error } = await supabase
+          .from('transaksi_keuangan')
+          .update(dbPayload)
+          .eq('id', newId)
+        if (error) console.error('Gagal memperbarui transaksi:', error.message)
+      }
+    }
+  }
 
   // Persist Histori (no longer synced to localStorage, managed by Supabase)
 
@@ -807,7 +879,7 @@ export default function DashboardAdmin() {
         {/* Sub-view Content Section */}
         <div className="flex-grow p-4 sm:p-6 lg:p-8 overflow-y-auto h-full text-left print:p-0 print:overflow-visible">
           
-          <Outlet context={{ lansiaList, setLansiaList: updateLansiaList, petugasList, setPetugasList: updatePetugasList, transaksiList, setTransaksiList, historiList, setHistoriList: updateHistoriList, paguAnggaran, setPaguAnggaran, pesanList, setPesanList: updatePesanList }} />
+          <Outlet context={{ lansiaList, setLansiaList: updateLansiaList, petugasList, setPetugasList: updatePetugasList, transaksiList, setTransaksiList: updateTransaksiList, historiList, setHistoriList: updateHistoriList, paguAnggaran, setPaguAnggaran, pesanList, setPesanList: updatePesanList }} />
 
         </div>
       </main>
