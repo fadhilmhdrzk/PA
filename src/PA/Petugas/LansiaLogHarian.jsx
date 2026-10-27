@@ -1,99 +1,39 @@
 import { useState, useEffect } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useNavigate, useParams } from 'react-router-dom'
 
 export default function LansiaLogHarian() {
   const { lansiaList = [], setLansiaList, petugasList = [], activeNurse = {} } = useOutletContext()
+  const navigate = useNavigate()
+  const { id: riwayatId } = useParams()
 
   const [searchLansia, setSearchLansia] = useState('')
   const [filterStatus, setFilterStatus] = useState('Semua')
   const [currentPage, setCurrentPage] = useState(1)
+
+  // Reset pagination to page 1 whenever filter or search changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchLansia, filterStatus])
   
-  // Selected Lansia for viewing log history
-  const [selectedLansia, setSelectedLansia] = useState(null)
+  // Selected Lansia for viewing log history (derived from URL route param)
+  const selectedLansia = riwayatId 
+    ? lansiaList.find(item => String(item.id) === String(riwayatId))
+    : null
   
   // Modal for creating a new log
   const [showLogModal, setShowLogModal] = useState(false)
   const [targetLansia, setTargetLansia] = useState(null)
 
-  // Modal for editing senior data
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [lightboxImage, setLightboxImage] = useState(null)
-  const [currentLansia, setCurrentLansia] = useState({
-    id: null,
-    nama: '',
-    tanggalLahir: '1950-01-01',
-    fotoUrl: '',
-    id_blok: '',
-    blok: '',
-    status: 'Mandiri',
-    tanggalMasuk: '',
-    tanggalKeluar: '--:--:----',
-    golonganDarah: 'B+',
-    alergi: 'Tidak Ada',
-    penyakitBawaan: 'Tidak Ada',
-    statusBerkas: 'LENGKAP',
-    bpjs: 'Aktif (PBI)',
-    logHarian: []
+  // Custom confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    isDanger: true
   })
 
-  // Date lists for Picker
-  const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
-  const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
-  const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: currentYear - 1919 }, (_, i) => String(currentYear - i))
-
-  const handleDateChange = (type, val) => {
-    const [y, m, d] = currentLansia.tanggalLahir && currentLansia.tanggalLahir.includes('-')
-      ? currentLansia.tanggalLahir.split('-')
-      : ['1950', '01', '01']
-    let newY = y || '1950'
-    let newM = m || '01'
-    let newD = d || '01'
-    if (type === 'year') newY = val
-    if (type === 'month') newM = val
-    if (type === 'day') newD = val
-
-    // Auto-adjust day if it exceeds the max days in the selected month/year
-    const maxDays = new Date(Number(newY), Number(newM), 0).getDate()
-    if (Number(newD) > maxDays) {
-      newD = String(maxDays).padStart(2, '0')
-    }
-
-    setCurrentLansia({ ...currentLansia, tanggalLahir: `${newY}-${newM}-${newD}` })
-  }
-
-  // Extract separate parts of birthdate for dropdown select
-  const [ly, lm, ld] = currentLansia.tanggalLahir && currentLansia.tanggalLahir.includes('-')
-    ? currentLansia.tanggalLahir.split('-')
-    : ['1950', '01', '01']
-
-  const handleFotoUpload = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setCurrentLansia({ ...currentLansia, fotoUrl: reader.result })
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const handleOpenEditModal = (lansia) => {
-    setCurrentLansia(lansia)
-    setShowEditModal(true)
-  }
-
-  const handleSaveLansia = (e) => {
-    e.preventDefault()
-    const updatedList = lansiaList.map(item => item.id === currentLansia.id ? currentLansia : item)
-    setLansiaList(updatedList)
-
-    // update active details if we are currently viewing it
-    if (selectedLansia && selectedLansia.id === currentLansia.id) {
-      setSelectedLansia(currentLansia)
-    }
-    setShowEditModal(false)
-  }
+  const [lightboxImage, setLightboxImage] = useState(null)
 
   // Log Form State
   const [logForm, setLogForm] = useState({
@@ -179,21 +119,110 @@ export default function LansiaLogHarian() {
   const endIndex = startIndex + itemsPerPage
   const paginatedLansia = filteredLansia.slice(startIndex, endIndex)
 
+  // Helper to check if log is from today
+  const isLogFromToday = (logWaktu) => {
+    if (!logWaktu) return false
+    const today = new Date()
+    const todayDateStr = today.toLocaleDateString('id-ID', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric' 
+    })
+    const todayDateStrSingleDigit = today.toLocaleDateString('id-ID', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    })
+    return logWaktu.includes(todayDateStr) || logWaktu.includes(todayDateStrSingleDigit)
+  }
+
+  // Parse structured data from existing log
+  const parseCatatanMetricsAndActivities = (log) => {
+    if (!log) return null
+    
+    const catatan = log.catatan || ''
+    
+    const makanPagi = log.makanPagi !== undefined ? !!log.makanPagi : (catatan.includes('Sarapan') || catatan.includes('Makan Pagi'))
+    const makanSiang = log.makanSiang !== undefined ? !!log.makanSiang : catatan.includes('Makan Siang')
+    const makanMalam = log.makanMalam !== undefined ? !!log.makanMalam : catatan.includes('Makan Malam')
+    const minumObat = log.minumObat !== undefined ? !!log.minumObat : catatan.includes('Minum Obat')
+    const mandi = log.mandi !== undefined ? !!log.mandi : (catatan.includes('Mandi') || catatan.includes('Bersih diri'))
+    
+    let tensi = log.tensi !== undefined ? log.tensi : '120/80'
+    if (log.tensi === undefined && catatan.includes('Tensi:')) {
+      const match = catatan.match(/Tensi:\s*([0-9]+\/[0-9]+)/i)
+      if (match) tensi = match[1]
+    }
+
+    let suhu = log.suhu !== undefined ? log.suhu : '36.5'
+    if (log.suhu === undefined && catatan.includes('Suhu:')) {
+      const match = catatan.match(/Suhu:\s*([0-9]+(?:\.[0-9]+)?)/i)
+      if (match) suhu = match[1]
+    }
+
+    let gulaDarah = log.gulaDarah !== undefined ? log.gulaDarah : ''
+    if (log.gulaDarah === undefined && catatan.includes('Gula Darah:')) {
+      const match = catatan.match(/Gula Darah:\s*([0-9]+)/i)
+      if (match) gulaDarah = match[1]
+    }
+
+    let catatanTambahan = log.catatanTambahan !== undefined ? log.catatanTambahan : ''
+    if (log.catatanTambahan === undefined && catatan.includes('Catatan:')) {
+      const parts = catatan.split('Catatan:')
+      if (parts.length > 1) {
+        catatanTambahan = parts[1].trim()
+      }
+    }
+
+    return {
+      perawat: log.perawat,
+      tensi,
+      suhu,
+      gulaDarah,
+      makanPagi,
+      makanSiang,
+      makanMalam,
+      minumObat,
+      mandi,
+      catatanTambahan
+    }
+  }
+
   // Open Log Modal
   const handleOpenLogModal = (lansia) => {
     setTargetLansia(lansia)
-    setLogForm({
-      perawat: activeNurse.nama || 'Ns. Rina Lestari',
-      tensi: '120/80',
-      suhu: '36.5',
-      gulaDarah: '',
-      makanPagi: false,
-      makanSiang: false,
-      makanMalam: false,
-      minumObat: false,
-      mandi: false,
-      catatanTambahan: ''
-    })
+    
+    const logs = lansia.logHarian || []
+    const todayLog = logs.find(log => isLogFromToday(log.waktu))
+
+    if (todayLog) {
+      const existing = parseCatatanMetricsAndActivities(todayLog)
+      setLogForm({
+        perawat: activeNurse.nama || existing.perawat || 'Ns. Rina Lestari',
+        tensi: existing.tensi,
+        suhu: existing.suhu,
+        gulaDarah: existing.gulaDarah,
+        makanPagi: existing.makanPagi,
+        makanSiang: existing.makanSiang,
+        makanMalam: existing.makanMalam,
+        minumObat: existing.minumObat,
+        mandi: existing.mandi,
+        catatanTambahan: existing.catatanTambahan
+      })
+    } else {
+      setLogForm({
+        perawat: activeNurse.nama || 'Ns. Rina Lestari',
+        tensi: '120/80',
+        suhu: '36.5',
+        gulaDarah: '',
+        makanPagi: false,
+        makanSiang: false,
+        makanMalam: false,
+        minumObat: false,
+        mandi: false,
+        catatanTambahan: ''
+      })
+    }
     setShowLogModal(true)
   }
 
@@ -231,15 +260,41 @@ export default function LansiaLogHarian() {
     const newLogEntry = {
       waktu: waktuStr,
       perawat: logForm.perawat,
+      tensi: logForm.tensi,
+      suhu: logForm.suhu,
+      gulaDarah: logForm.gulaDarah,
+      makanPagi: logForm.makanPagi,
+      makanSiang: logForm.makanSiang,
+      makanMalam: logForm.makanMalam,
+      minumObat: logForm.minumObat,
+      mandi: logForm.mandi,
+      catatanTambahan: logForm.catatanTambahan,
       catatan: combinedCatatan
     }
 
-    // Append to target lansia's logs
+    // Update target lansia's logs
     const updatedLansiaList = lansiaList.map(lansia => {
       if (lansia.id === targetLansia.id) {
+        const existingLogs = lansia.logHarian || []
+        const todayLogIndex = existingLogs.findIndex(log => isLogFromToday(log.waktu))
+
+        let newLogs = []
+        if (todayLogIndex !== -1) {
+          // Update today's existing log entry
+          newLogs = [...existingLogs]
+          newLogs[todayLogIndex] = {
+            ...newLogs[todayLogIndex],
+            ...newLogEntry,
+            waktu: waktuStr // update time to latest edit
+          }
+        } else {
+          // Append new log entry for today at top
+          newLogs = [newLogEntry, ...existingLogs]
+        }
+
         return {
           ...lansia,
-          logHarian: [newLogEntry, ...(lansia.logHarian || [])]
+          logHarian: newLogs
         }
       }
       return lansia
@@ -251,50 +306,59 @@ export default function LansiaLogHarian() {
     
     // If selected log history is currently open for this lansia, update the display selection
     if (selectedLansia && selectedLansia.id === targetLansia.id) {
-      setSelectedLansia({
-        ...targetLansia,
-        logHarian: [newLogEntry, ...(targetLansia.logHarian || [])]
-      })
+      const updatedItem = updatedLansiaList.find(l => l.id === targetLansia.id)
+      if (updatedItem) {
+        setSelectedLansia(updatedItem)
+      }
     }
   }
 
   // Handle Delete Log Entry
   const handleDeleteLog = (lansiaId, logIdx) => {
-    if (confirm('Hapus log pemeriksaan harian ini?')) {
-      const updatedList = lansiaList.map(lansia => {
-        if (lansia.id === lansiaId) {
-          const updatedLogs = [...(lansia.logHarian || [])]
-          updatedLogs.splice(logIdx, 1)
-          return {
-            ...lansia,
-            logHarian: updatedLogs
+    setConfirmModal({
+      show: true,
+      title: 'Hapus Log Pemeriksaan?',
+      message: 'Apakah Anda yakin ingin menghapus catatan log pemeriksaan harian ini? Catatan yang dihapus tidak dapat dikembalikan.',
+      isDanger: true,
+      onConfirm: () => {
+        const updatedList = lansiaList.map(lansia => {
+          if (lansia.id === lansiaId) {
+            const updatedLogs = [...(lansia.logHarian || [])]
+            updatedLogs.splice(logIdx, 1)
+            return {
+              ...lansia,
+              logHarian: updatedLogs
+            }
           }
-        }
-        return lansia
-      })
-      setLansiaList(updatedList)
-
-      // update view history
-      if (selectedLansia && selectedLansia.id === lansiaId) {
-        const updatedLogs = [...(selectedLansia.logHarian || [])]
-        updatedLogs.splice(logIdx, 1)
-        setSelectedLansia({
-          ...selectedLansia,
-          logHarian: updatedLogs
+          return lansia
         })
+        setLansiaList(updatedList)
+
+        // update view history
+        if (selectedLansia && selectedLansia.id === lansiaId) {
+          const updatedLogs = [...(selectedLansia.logHarian || [])]
+          updatedLogs.splice(logIdx, 1)
+          setSelectedLansia({
+            ...selectedLansia,
+            logHarian: updatedLogs
+          })
+        }
+
+        setConfirmModal({ show: false, title: '', message: '', onConfirm: null, isDanger: false })
       }
-    }
+    })
   }
 
-  // View Log History View
-  if (selectedLansia) {
-    const l = selectedLansia
-    return (
-      <div className="space-y-6 animate-fade-in text-left">
+  const l = selectedLansia
+
+  return (
+    <>
+      {selectedLansia ? (
+        <div className="space-y-6 animate-fade-in text-left">
         {/* Back Button & Action Row */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
           <button
-            onClick={() => setSelectedLansia(null)}
+            onClick={() => navigate('/dashboard/petugas/lansia')}
             className="flex items-center gap-2 text-stone-700 hover:text-stone-900 font-bold transition-all text-sm uppercase cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -304,12 +368,6 @@ export default function LansiaLogHarian() {
           </button>
 
           <div className="flex gap-3">
-            <button
-              onClick={() => handleOpenEditModal(l)}
-              className="bg-white border border-stone-300 hover:bg-stone-50 text-stone-705 font-bold py-2.5 px-5 rounded-xl text-xs uppercase shadow-sm transition-all cursor-pointer"
-            >
-              Edit Data Lansia
-            </button>
             <button
               onClick={() => handleOpenLogModal(l)}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs uppercase shadow transition-all cursor-pointer"
@@ -367,9 +425,9 @@ export default function LansiaLogHarian() {
                     {/* Delete button for perawat logs */}
                     <button
                       onClick={() => handleDeleteLog(l.id, idx)}
-                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity font-semibold cursor-pointer text-[10px] uppercase"
+                      className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-100 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider cursor-pointer transition-all shadow-2xs"
                     >
-                      Hapus
+                      Hapus Log
                     </button>
                   </div>
                   
@@ -384,12 +442,8 @@ export default function LansiaLogHarian() {
           </div>
         </div>
       </div>
-    )
-  }
-
-  // List View
-  return (
-    <div className="bg-white rounded-2xl border border-stone-200/50 shadow-md p-6 space-y-6 animate-fade-in text-left">
+      ) : (
+        <div className="bg-white rounded-2xl border border-stone-200/50 shadow-md p-6 space-y-6 animate-fade-in text-left">
       
       {/* Search & Filter Header */}
       <div className="flex flex-col sm:flex-row justify-between gap-4 items-stretch sm:items-center">
@@ -453,15 +507,7 @@ export default function LansiaLogHarian() {
                       </div>
                     </div>
                     
-                    <button
-                      onClick={() => handleOpenEditModal(item)}
-                      className="text-stone-400 hover:text-emerald-700 p-1.5 rounded-lg hover:bg-stone-200/50 transition-all cursor-pointer flex-shrink-0"
-                      title="Edit Data Lansia"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                    </button>
+
                   </div>
 
                   {/* Body info */}
@@ -509,7 +555,7 @@ export default function LansiaLogHarian() {
                     Catat Log
                   </button>
                   <button
-                    onClick={() => setSelectedLansia(item)}
+                    onClick={() => navigate(`/dashboard/petugas/lansia/riwayat/${item.id}`)}
                     className="bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 font-bold py-2 rounded-xl text-[10px] uppercase tracking-wide cursor-pointer transition-colors text-center"
                   >
                     Riwayat
@@ -734,214 +780,8 @@ export default function LansiaLogHarian() {
         </div>
       )}
 
-      {/* --- EDIT LANSIA MODAL --- */}
-      {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative text-left overflow-y-auto max-h-[90vh]">
-            <h3 className="text-lg font-extrabold text-stone-900 tracking-tight border-b border-stone-100 pb-3 mb-6">
-              Edit Data Lansia (Petugas Panel)
-            </h3>
-            
-            <form onSubmit={handleSaveLansia} className="space-y-4">
-              {/* Profile Picture Uploader */}
-              <div className="flex flex-col items-center gap-2 pb-4 border-b border-stone-100">
-                <div className="relative w-20 h-20 rounded-2xl bg-stone-50 border border-stone-200 flex items-center justify-center overflow-hidden group">
-                  {currentLansia.fotoUrl ? (
-                    <img src={currentLansia.fotoUrl} alt="Preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-2xl font-black text-stone-405">
-                      {currentLansia.nama ? getInitials(currentLansia.nama) : '?'}
-                    </span>
-                  )}
-                  {/* Upload Overlay */}
-                  <label className="absolute inset-0 bg-black/45 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFotoUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Unggah Foto Lansia</span>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Nama Lengkap</label>
-                  <input
-                    type="text"
-                    required
-                    value={currentLansia.nama}
-                    onChange={(e) => setCurrentLansia({ ...currentLansia, nama: e.target.value })}
-                    placeholder="Contoh: H. M. Yunus"
-                    className="w-full bg-stone-50 border border-stone-200 px-4 py-2.5 rounded-xl text-sm font-semibold text-stone-850 focus:outline-none focus:border-emerald-600 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Tanggal Lahir</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {/* Day */}
-                    <select
-                      value={ld}
-                      onChange={(e) => handleDateChange('day', e.target.value)}
-                      className="w-full bg-stone-50 border border-stone-200 px-2 py-3 rounded-xl text-xs font-bold text-stone-850 focus:outline-none focus:border-emerald-600 transition-colors"
-                    >
-                      {days.map((day) => (
-                        <option key={day} value={day}>{day}</option>
-                      ))}
-                    </select>
-
-                    {/* Month */}
-                    <select
-                      value={lm}
-                      onChange={(e) => handleDateChange('month', e.target.value)}
-                      className="w-full bg-stone-50 border border-stone-200 px-2 py-3 rounded-xl text-xs font-bold text-stone-850 focus:outline-none focus:border-emerald-600 transition-colors"
-                    >
-                      {months.map((m) => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-
-                    {/* Year */}
-                    <select
-                      value={ly}
-                      onChange={(e) => handleDateChange('year', e.target.value)}
-                      className="w-full bg-stone-50 border border-stone-200 px-2 py-3 rounded-xl text-xs font-bold text-stone-850 focus:outline-none focus:border-emerald-600 transition-colors"
-                    >
-                      {years.map((year) => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">ID / NIP Lansia</label>
-                  <input
-                    type="text"
-                    required
-                    value={currentLansia.id_blok}
-                    onChange={(e) => setCurrentLansia({ ...currentLansia, id_blok: e.target.value })}
-                    placeholder="Contoh: P0012"
-                    className="w-full bg-stone-50 border border-stone-200 px-4 py-2.5 rounded-xl text-sm font-semibold text-stone-855 focus:outline-none focus:border-emerald-600 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Blok / Kamar</label>
-                  <input
-                    type="text"
-                    required
-                    value={currentLansia.blok}
-                    onChange={(e) => setCurrentLansia({ ...currentLansia, blok: e.target.value })}
-                    placeholder="Contoh: Blok A - 01"
-                    className="w-full bg-stone-50 border border-stone-200 px-4 py-2.5 rounded-xl text-sm font-semibold text-stone-855 focus:outline-none focus:border-emerald-600 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Status Kesehatan</label>
-                <select
-                  value={currentLansia.status}
-                  onChange={(e) => setCurrentLansia({ ...currentLansia, status: e.target.value })}
-                  className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-xs font-bold text-stone-800 focus:outline-none focus:border-emerald-600 transition-colors"
-                >
-                  <option value="Mandiri">Mandiri</option>
-                  <option value="Semi Klinis">Semi Klinis</option>
-                  <option value="Klinis">Klinis</option>
-                </select>
-              </div>
-
-              {/* Extra Medical Info */}
-              <div className="grid grid-cols-3 gap-4 border-t border-stone-100 pt-4">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Gol. Darah</label>
-                  <select
-                    value={currentLansia.golonganDarah}
-                    onChange={(e) => setCurrentLansia({ ...currentLansia, golonganDarah: e.target.value })}
-                    className="w-full bg-stone-50 border border-stone-200 px-3 py-3 rounded-xl text-xs font-bold text-stone-800 focus:outline-none"
-                  >
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O">O</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Alergi</label>
-                  <input
-                    type="text"
-                    value={currentLansia.alergi}
-                    onChange={(e) => setCurrentLansia({ ...currentLansia, alergi: e.target.value })}
-                    placeholder="Seafood/Debu"
-                    className="w-full bg-stone-50 border border-stone-200 px-3 py-2.5 rounded-xl text-xs font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Penyakit Bawaan</label>
-                  <input
-                    type="text"
-                    value={currentLansia.penyakitBawaan}
-                    onChange={(e) => setCurrentLansia({ ...currentLansia, penyakitBawaan: e.target.value })}
-                    placeholder="Hipertensi"
-                    className="w-full bg-stone-50 border border-stone-200 px-3 py-2.5 rounded-xl text-xs font-semibold"
-                  />
-                </div>
-              </div>
-
-              {/* Extra Admin Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Status Berkas</label>
-                  <select
-                    value={currentLansia.statusBerkas}
-                    onChange={(e) => setCurrentLansia({ ...currentLansia, statusBerkas: e.target.value })}
-                    className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-xs font-bold text-stone-800 focus:outline-none"
-                  >
-                    <option value="LENGKAP">LENGKAP</option>
-                    <option value="BELUM LENGKAP">BELUM LENGKAP</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">BPJS / Asuransi</label>
-                  <input
-                    type="text"
-                    value={currentLansia.bpjs}
-                    onChange={(e) => setCurrentLansia({ ...currentLansia, bpjs: e.target.value })}
-                    placeholder="Contoh: Aktif (PBI)"
-                    className="w-full bg-stone-50 border border-stone-200 px-4 py-2.5 rounded-xl text-sm font-semibold text-stone-855 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 justify-end pt-4 border-t border-stone-100">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold py-3 px-5 rounded-xl cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-3 px-5 rounded-xl shadow cursor-pointer uppercase tracking-wider"
-                >
-                  Simpan Perubahan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      </div>
       )}
 
       {/* --- LIGHTBOX MODAL --- */}
@@ -967,6 +807,67 @@ export default function LansiaLogHarian() {
           </div>
         </div>
       )}
-    </div>
+
+      {/* --- CUSTOM CONFIRM MODAL --- */}
+      {confirmModal.show && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setConfirmModal({ show: false, title: '', message: '', onConfirm: null, isDanger: false })}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-stone-200/50 transform transition-all scale-100 animate-in zoom-in-95 duration-200 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center">
+              {/* Icon Container */}
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${
+                confirmModal.isDanger ? 'bg-rose-50 text-rose-650' : 'bg-emerald-50 text-emerald-600'
+              }`}>
+                {confirmModal.isDanger ? (
+                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                ) : (
+                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+              </div>
+              
+              <h3 className="text-lg font-black text-stone-900 mb-2">{confirmModal.title}</h3>
+              <p className="text-sm text-stone-600 mb-6 leading-relaxed font-semibold">
+                {confirmModal.message}
+              </p>
+
+              <div className="flex gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setConfirmModal({ show: false, title: '', message: '', onConfirm: null, isDanger: false })}
+                  className="flex-1 py-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-xs font-bold text-stone-750 transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirmModal.onConfirm) {
+                      confirmModal.onConfirm()
+                    }
+                    setConfirmModal({ show: false, title: '', message: '', onConfirm: null, isDanger: false })
+                  }}
+                  className={`flex-1 py-3 rounded-xl text-xs font-bold text-white transition-all shadow-md cursor-pointer ${
+                    confirmModal.isDanger 
+                      ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20' 
+                      : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                  }`}
+                >
+                  Ya, Hapus Log
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

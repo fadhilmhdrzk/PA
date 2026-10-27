@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useNavigate, useParams } from 'react-router-dom'
 
 export default function DataLansia(props) {
   const context = useOutletContext() || {}
@@ -7,12 +7,20 @@ export default function DataLansia(props) {
   const setLansiaList = props.setLansiaList || context.setLansiaList
   const historiList = props.historiList || context.historiList || []
   const setHistoriList = props.setHistoriList || context.setHistoriList
+
+  const navigate = useNavigate()
+  const { id: riwayatId } = useParams()
+
   const [searchLansia, setSearchLansia] = useState('')
   const [filterStatus, setFilterStatus] = useState('Semua')
-  const [selectedLansiaInfo, setSelectedLansiaInfo] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState([])
   const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' })
+
+  // Derived selected lansia from URL route param
+  const selectedLansiaInfo = riwayatId
+    ? lansiaList.find(item => String(item.id) === String(riwayatId))
+    : null
 
   useEffect(() => {
     setCurrentPage(1)
@@ -391,7 +399,7 @@ export default function DataLansia(props) {
           {/* Top bar buttons */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <button
-              onClick={() => setSelectedLansiaInfo(null)}
+              onClick={() => navigate('/dashboard/admin/datalansia')}
               className="flex items-center gap-2 text-stone-700 hover:text-stone-900 font-bold transition-all text-sm uppercase cursor-pointer"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -662,9 +670,9 @@ export default function DataLansia(props) {
           <div className="flex justify-end text-xs mt-12">
             <div className="text-center w-64">
               <p>Bandung, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              <p className="font-semibold mt-1">Petugas Penanggung Jawab,</p>
+              <p className="font-semibold mt-1">Penanggung Jawab,</p>
               <div className="h-20"></div>
-              <p className="font-bold border-b border-black pb-0.5 inline-block w-48">Admin Utama</p>
+              <p className="font-bold border-b border-black pb-0.5 inline-block w-48">NGADIONO, S.Sos</p>
               <p className="text-[10px] text-stone-500 mt-0.5">Kepala UPT Husnul Khotimah</p>
             </div>
           </div>
@@ -823,7 +831,7 @@ export default function DataLansia(props) {
                     <div className="flex justify-end gap-3.5">
                       {/* Info Button */}
                       <button
-                        onClick={() => setSelectedLansiaInfo(item)}
+                        onClick={() => navigate(`/dashboard/admin/datalansia/riwayat/${item.id}`)}
                         className="cursor-pointer"
                         title="Detail Info"
                       >

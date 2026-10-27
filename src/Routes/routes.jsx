@@ -31,6 +31,7 @@ export default function AppRoutes() {
       <Route path="/dashboard/admin" element={<DashboardAdmin />}>
         <Route index element={<DashboardOverview />} />
         <Route path="datalansia" element={<DataLansia />} />
+        <Route path="datalansia/riwayat/:id" element={<DataLansia />} />
         <Route path="datapetugas" element={<DataPetugas />} />
         <Route path="keuangan" element={<DataKeuangan />} />
         <Route path="histori" element={<DataHistori />} />
@@ -39,6 +40,7 @@ export default function AppRoutes() {
       <Route path="/dashboard/petugas" element={<DashboardPetugas />}>
         <Route index element={<DashboardPetugasOverview />} />
         <Route path="lansia" element={<LansiaLogHarian />} />
+        <Route path="lansia/riwayat/:id" element={<LansiaLogHarian />} />
         <Route path="shift" element={<JadwalShift />} />
       </Route>
     </Routes>

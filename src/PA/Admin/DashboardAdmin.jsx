@@ -71,17 +71,19 @@ export default function DashboardAdmin() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const headerText = location.pathname.endsWith('datalansia')
-    ? 'Data Lansia'
-    : location.pathname.endsWith('datapetugas')
-      ? 'Data Petugas'
-      : location.pathname.endsWith('keuangan')
-        ? 'Data Keuangan'
-        : location.pathname.endsWith('histori')
-          ? 'Data Histori'
-          : location.pathname.endsWith('pesan')
-            ? 'Pesan Masuk'
-            : 'Dashboard'
+  const headerText = location.pathname.includes('/datalansia/riwayat')
+    ? 'Rekam Medis Lansia'
+    : location.pathname.includes('/datalansia')
+      ? 'Data Lansia'
+      : location.pathname.endsWith('datapetugas')
+        ? 'Data Petugas'
+        : location.pathname.endsWith('keuangan')
+          ? 'Data Keuangan'
+          : location.pathname.endsWith('histori')
+            ? 'Data Histori'
+            : location.pathname.endsWith('pesan')
+              ? 'Pesan Masuk'
+              : 'Dashboard'
 
   // State for Lansia
   const [lansiaList, setLansiaList] = useState([])

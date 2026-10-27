@@ -64,6 +64,7 @@ export default function DataKeuangan(props) {
   }
 
   const [showModal, setShowModal] = useState(false)
+  const [formError, setFormError] = useState('')
   const [lightboxImage, setLightboxImage] = useState(null)
   const [confirmModal, setConfirmModal] = useState({
     show: false,
@@ -126,6 +127,20 @@ export default function DataKeuangan(props) {
       .replace('IDR', 'Rp.');
   }
 
+  // Format angka dengan titik ribuan untuk input (contoh: 1.000.000)
+  const formatNominalDisplay = (val) => {
+    if (!val && val !== 0) return ''
+    const numStr = String(val).replace(/\D/g, '')
+    if (!numStr) return ''
+    return new Intl.NumberFormat('id-ID').format(Number(numStr))
+  }
+
+  // Handle perubahan input nominal (simpan sebagai angka murni)
+  const handleNominalChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, '') // hapus semua non-digit
+    setCurrentTransaksi({ ...currentTransaksi, nominal: raw ? Number(raw) : '' })
+  }
+
   // Handle CRUD
   const openAddTransaksi = () => {
     setCurrentTransaksi({
@@ -137,16 +152,32 @@ export default function DataKeuangan(props) {
       keterangan: '',
       buktiFoto: ''
     })
+    setFormError('')
     setShowModal(true)
   }
 
   const openEditTransaksi = (t) => {
     setCurrentTransaksi(t)
+    setFormError('')
     setShowModal(true)
   }
 
   const handleSaveTransaksi = (e) => {
     e.preventDefault()
+    // Validasi wajib
+    if (!currentTransaksi.nominal || Number(currentTransaksi.nominal) <= 0) {
+      setFormError('Nominal harus diisi dan lebih dari 0.')
+      return
+    }
+    if (!currentTransaksi.keterangan.trim()) {
+      setFormError('Keterangan belanja wajib diisi.')
+      return
+    }
+    if (!currentTransaksi.buktiFoto) {
+      setFormError('Bukti nota / kwitansi (foto) wajib diunggah.')
+      return
+    }
+    setFormError('')
     if (currentTransaksi.id) {
       // Edit
       setTransaksiList(
@@ -492,6 +523,15 @@ export default function DataKeuangan(props) {
               {currentTransaksi.id ? 'Edit Transaksi Keuangan' : 'Tambah Transaksi Keuangan Baru'}
             </h3>
             
+            {formError && (
+              <div className="flex items-center gap-2.5 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs font-bold mb-4">
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                {formError}
+              </div>
+            )}
+
             <form onSubmit={handleSaveTransaksi} className="space-y-4">
               {/* Tipe & Tanggal */}
               <div className="grid grid-cols-2 gap-4">
@@ -534,14 +574,18 @@ export default function DataKeuangan(props) {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">Nominal (Rupiah)</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="Contoh: 1500000"
-                    value={currentTransaksi.nominal}
-                    onChange={(e) => setCurrentTransaksi({ ...currentTransaksi, nominal: e.target.value })}
-                    className="w-full bg-stone-50 border border-stone-200 px-4 py-2.5 rounded-xl text-sm font-semibold text-stone-855 focus:outline-none focus:border-emerald-600 transition-colors"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400 pointer-events-none">Rp</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      required
+                      placeholder="0"
+                      value={formatNominalDisplay(currentTransaksi.nominal)}
+                      onChange={handleNominalChange}
+                      className="w-full bg-stone-50 border border-stone-200 pl-9 pr-4 py-2.5 rounded-xl text-sm font-semibold text-stone-855 focus:outline-none focus:border-emerald-600 transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
 

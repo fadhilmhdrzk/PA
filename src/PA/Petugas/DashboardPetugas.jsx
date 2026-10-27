@@ -360,11 +360,13 @@ export default function DashboardPetugas() {
     setShowLogoutConfirm(true)
   }
 
-  const headerText = location.pathname.endsWith('lansia')
-    ? 'Log Harian Lansia'
-    : location.pathname.endsWith('shift')
-      ? 'Jadwal Shift & Kehadiran'
-      : 'Overview Petugas'
+  const headerText = location.pathname.includes('/lansia/riwayat')
+    ? 'Riwayat & Rekam Medis Lansia'
+    : location.pathname.includes('/lansia')
+      ? 'Log Harian Lansia'
+      : location.pathname.endsWith('shift')
+        ? 'Jadwal Shift & Kehadiran'
+        : 'Overview Petugas'
 
   return (
     <div className="h-screen flex bg-stone-100 text-stone-850 font-sans overflow-hidden relative">

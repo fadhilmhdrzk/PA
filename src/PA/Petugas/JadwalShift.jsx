@@ -15,6 +15,9 @@ export default function JadwalShift() {
     return localStorage.getItem('nurseCheckInTime') !== null && localStorage.getItem('nurseCheckOutTime') === null
   })
 
+  const [modalInfo, setModalInfo] = useState({ show: false, title: '', message: '', icon: 'success' })
+  const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '', onConfirm: null })
+
   // Handle Check In
   const handleCheckIn = () => {
     const now = new Date()
@@ -24,19 +27,35 @@ export default function JadwalShift() {
     setIsCheckInActive(true)
     localStorage.setItem('nurseCheckInTime', timeStr)
     localStorage.removeItem('nurseCheckOutTime')
-    alert(`Absen masuk berhasil tercatat pada pukul ${timeStr}! Selamat bertugas.`)
+    setModalInfo({
+      show: true,
+      title: 'Absen Masuk Berhasil',
+      message: `Absen masuk berhasil tercatat pada pukul ${timeStr}! Selamat bertugas.`,
+      icon: 'success'
+    })
   }
 
   // Handle Check Out
   const handleCheckOut = () => {
-    if (confirm('Apakah Anda yakin ingin melakukan absensi keluar?')) {
-      const now = new Date()
-      const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      setCheckOutTime(timeStr)
-      setIsCheckInActive(false)
-      localStorage.setItem('nurseCheckOutTime', timeStr)
-      alert(`Absen keluar berhasil tercatat pada pukul ${timeStr}! Terima kasih atas pengabdian Anda hari ini.`)
-    }
+    setConfirmModal({
+      show: true,
+      title: 'Konfirmasi Absen Keluar',
+      message: 'Apakah Anda yakin ingin melakukan absensi keluar untuk shift ini?',
+      onConfirm: () => {
+        const now = new Date()
+        const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        setCheckOutTime(timeStr)
+        setIsCheckInActive(false)
+        localStorage.setItem('nurseCheckOutTime', timeStr)
+        setConfirmModal({ show: false, title: '', message: '', onConfirm: null })
+        setModalInfo({
+          show: true,
+          title: 'Absen Keluar Berhasil',
+          message: `Absen keluar berhasil tercatat pada pukul ${timeStr}! Terima kasih atas pengabdian Anda hari ini.`,
+          icon: 'success'
+        })
+      }
+    })
   }
 
   // Handle Switch User (Simulation Helper)
@@ -56,7 +75,12 @@ export default function JadwalShift() {
     localStorage.removeItem('nurseCheckInTime')
     localStorage.removeItem('nurseCheckOutTime')
     
-    alert(`Simulasi berhasil! Anda sekarang bertindak sebagai ${nurse.nama} (Shift ${nurse.shift}).`)
+    setModalInfo({
+      show: true,
+      title: 'Simulasi Ganti Perawat',
+      message: `Simulasi berhasil! Anda sekarang bertindak sebagai ${nurse.nama} (Shift ${nurse.shift}).`,
+      icon: 'info'
+    })
   }
 
   // Shift categories metadata
@@ -242,6 +266,66 @@ export default function JadwalShift() {
 
       </div>
 
+      {/* Modal Notification Info */}
+      {modalInfo.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-stone-200/50 transform transition-all scale-100 animate-in zoom-in-95 duration-200 text-center">
+            <div className="flex flex-col items-center">
+              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              
+              <h3 className="text-lg font-black text-stone-900 mb-1">{modalInfo.title}</h3>
+              <p className="text-xs text-stone-600 mb-6 leading-relaxed font-semibold">{modalInfo.message}</p>
+
+              <button
+                type="button"
+                onClick={() => setModalInfo({ show: false, title: '', message: '', icon: 'success' })}
+                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white transition-all shadow-md cursor-pointer"
+              >
+                Mengerti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirm Modal */}
+      {confirmModal.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-stone-200/50 transform transition-all scale-100 animate-in zoom-in-95 duration-200 text-center">
+            <div className="flex flex-col items-center">
+              <div className="w-14 h-14 bg-rose-50 text-rose-650 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </div>
+              
+              <h3 className="text-lg font-black text-stone-900 mb-1">{confirmModal.title}</h3>
+              <p className="text-xs text-stone-600 mb-6 leading-relaxed font-semibold">{confirmModal.message}</p>
+
+              <div className="flex gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setConfirmModal({ show: false, title: '', message: '', onConfirm: null })}
+                  className="flex-1 py-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-xs font-bold text-stone-750 transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmModal.onConfirm}
+                  className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white transition-all shadow-md cursor-pointer"
+                >
+                  Ya, Lanjutkan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
