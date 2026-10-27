@@ -94,15 +94,32 @@ export default function DashboardAdmin() {
   // State for Keuangan (synced to Supabase)
   const [transaksiList, setTransaksiList] = useState([])
 
-  // State for Keuangan Pagu Anggaran initialized from localStorage
-  const [paguAnggaran, setPaguAnggaran] = useState(() => {
-    const saved = localStorage.getItem('paguAnggaran')
-    return saved ? Number(saved) : 50000000
-  })
+  // State for Pagu Anggaran (synced to Supabase)
+  const [paguAnggaran, setPaguAnggaran] = useState(50000000)
 
+  // Fetch Pagu Anggaran from Supabase
   useEffect(() => {
-    localStorage.setItem('paguAnggaran', paguAnggaran.toString())
-  }, [paguAnggaran])
+    const fetchPagu = async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'pagu_anggaran')
+        .single()
+      if (!error && data) {
+        setPaguAnggaran(Number(data.value))
+      }
+    }
+    fetchPagu()
+  }, [])
+
+  // Update Pagu Anggaran to Supabase
+  const updatePaguAnggaran = async (newValue) => {
+    setPaguAnggaran(newValue)
+    await supabase
+      .from('app_settings')
+      .update({ value: newValue.toString() })
+      .eq('key', 'pagu_anggaran')
+  }
 
   // Keep latest value transaksi in ref
   const transaksiListRef = useRef(transaksiList)
@@ -879,7 +896,7 @@ export default function DashboardAdmin() {
         {/* Sub-view Content Section */}
         <div className="flex-grow p-4 sm:p-6 lg:p-8 overflow-y-auto h-full text-left print:p-0 print:overflow-visible">
           
-          <Outlet context={{ lansiaList, setLansiaList: updateLansiaList, petugasList, setPetugasList: updatePetugasList, transaksiList, setTransaksiList: updateTransaksiList, historiList, setHistoriList: updateHistoriList, paguAnggaran, setPaguAnggaran, pesanList, setPesanList: updatePesanList }} />
+          <Outlet context={{ lansiaList, setLansiaList: updateLansiaList, petugasList, setPetugasList: updatePetugasList, transaksiList, setTransaksiList: updateTransaksiList, historiList, setHistoriList: updateHistoriList, paguAnggaran, setPaguAnggaran: updatePaguAnggaran, pesanList, setPesanList: updatePesanList }} />
 
         </div>
       </main>
