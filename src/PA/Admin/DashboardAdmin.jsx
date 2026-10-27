@@ -139,6 +139,11 @@ export default function DashboardAdmin() {
   // State for mobile sidebar menu toggle
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
+  // Loading state — tracks how many fetches have completed
+  const [loadedCount, setLoadedCount] = useState(0)
+  const TOTAL_FETCHES = 5 // lansia, petugas, pesan, transaksi, histori
+  const isLoading = loadedCount < TOTAL_FETCHES
+
   useEffect(() => {
     setIsSidebarOpen(false)
   }, [location.pathname])
@@ -278,6 +283,7 @@ export default function DashboardAdmin() {
           }
         }
       }
+      setLoadedCount(prev => prev + 1)
     }
     fetchLansia()
   }, [])
@@ -312,6 +318,7 @@ export default function DashboardAdmin() {
           }
         }
       }
+      setLoadedCount(prev => prev + 1)
     }
     fetchPetugas()
   }, [])
@@ -336,6 +343,7 @@ export default function DashboardAdmin() {
           setPesanList(data.map(mapPesanToUi))
         }
       }
+      setLoadedCount(prev => prev + 1)
     }
     fetchPesan()
   }, [])
@@ -449,6 +457,7 @@ export default function DashboardAdmin() {
           setHistoriList(data.map(mapHistoriToUi))
         }
       }
+      setLoadedCount(prev => prev + 1)
     }
     fetchHistori()
   }, [])
@@ -645,6 +654,7 @@ export default function DashboardAdmin() {
           buktiFoto: db.bukti_foto || ''
         })))
       }
+      setLoadedCount(prev => prev + 1)
     }
     fetchTransaksi()
   }, [])
@@ -714,6 +724,32 @@ export default function DashboardAdmin() {
 
   return (
     <div className="h-screen flex bg-stone-100 text-stone-850 font-sans overflow-hidden print:h-auto print:overflow-visible print:bg-white relative">
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white">
+          <div className="flex flex-col items-center gap-5">
+            {/* Spinner */}
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 rounded-full border-4 border-emerald-100"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-emerald-600 animate-spin"></div>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-extrabold text-stone-900 tracking-tight">Memuat Data...</p>
+              <p className="text-xs text-stone-400 font-semibold mt-1">
+                {loadedCount} / {TOTAL_FETCHES} selesai
+              </p>
+            </div>
+            {/* Progress bar */}
+            <div className="w-48 h-1.5 bg-stone-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-600 rounded-full transition-all duration-300"
+                style={{ width: `${(loadedCount / TOTAL_FETCHES) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Mobile Overlay Backdrop */}
       {isSidebarOpen && (
